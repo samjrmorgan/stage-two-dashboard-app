@@ -10,6 +10,22 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+// Network-first for navigations/HTML so the installed Home Screen app always
+// tries to fetch the latest dashboard content first, only falling back to
+// whatever's cached if the network request fails (e.g. offline).
+self.addEventListener("fetch", (event) => {
+  if (event.request.mode !== "navigate") return;
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        const copy = response.clone();
+        caches.open("st-dash-v1").then((cache) => cache.put(event.request, copy));
+        return response;
+      })
+      .catch(() => caches.match(event.request))
+  );
+});
+
 self.addEventListener("push", (event) => {
   let payload = { title: "Stage Two Media", body: "Dashboard update" };
   try {
